@@ -1,29 +1,27 @@
 package com.fiit.dsa;
 
-import lombok.SneakyThrows;
-import org.openjdk.jmh.annotations.Mode;
-import org.openjdk.jmh.results.format.ResultFormatType;
-import org.openjdk.jmh.runner.Runner;
+import com.fiit.dsa.bdd.BDD;
+import com.opencsv.CSVWriter;
 import org.openjdk.jmh.runner.RunnerException;
-import org.openjdk.jmh.runner.options.Options;
-import org.openjdk.jmh.runner.options.OptionsBuilder;
 
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Scanner;
-import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.stream.Collectors;
+
+import static com.fiit.dsa.bdd.Expression.*;
 
 public class Manager {
 
-    private static final String basePath = "src/main/resources/";
+    private static final String BASE_PATH = "src/main/resources/create.csv";
 
-    private final Scanner scanner;
+    private static final Scanner scanner = new Scanner(System.in);
 
-    public Manager() {
-        scanner = new Scanner(System.in);
-    }
-
-    private Integer handleNumber(String text) {
+    private static Integer handleNumber(String text) {
         System.out.println(text + " `number` :");
 
         try {
@@ -33,7 +31,7 @@ public class Manager {
         }
     }
 
-    private String handleInput(String text, String[] acceptableStringedOptions) {
+    private static String handleInput(String text, String[] acceptableStringedOptions) {
         System.out.println(text + " [" + Arrays.stream(acceptableStringedOptions).filter(string -> string.charAt(0) != '_').collect(Collectors.joining(", ")) + "]:");
 
         String line = scanner.nextLine();
@@ -47,42 +45,205 @@ public class Manager {
                 .orElseGet(() -> handleInput(text, acceptableStringedOptions));
     }
 
+    private static String handleInput(String text, Function<String, Boolean> acceptableStringedOptions) {
+        System.out.println(text);
+
+        String line = scanner.nextLine();
+
+        if (line.isEmpty() || !acceptableStringedOptions.apply(line))
+            handleInput(text, acceptableStringedOptions);
+
+        return line;
+    }
+
     public static void main(String[] args) throws RunnerException {
-        Manager manager = new Manager();
 
-        final String methodOfTesting = manager.handleInput("Method of testing:", new String[]{"automatic", "_logger"});
+        final String methodOfTesting = handleInput("Method of testing:", new String[]{"automatic", "manual", "_logger", "exit"});
 
-        switch (methodOfTesting) {
-            case "automatic":
-                runAutomatic();
-                break;
-            case "manual":
-                break;
+        try {
+            switch (methodOfTesting) {
+                case "automatic" -> runAutomatic(
+                        handleNumber("Size of tested expressions"),
+                        handleNumber("Number of variables"),
+                        handleInput("With best order?", new String[]{"yes", "no"}).equals("yes"),
+                        false
+                );
+                case "manual" -> runManual();
+                case "_logger" -> runLogger();
+                case "exit" -> System.exit(0);
+            }
+        } catch (Exception ex) {
+            System.out.println("~ There was an error: " + ex.getMessage());
+        }
 
-            case "logger":
-                break;
+        main(args);
+    }
+
+    private static void runManual() {
+        final String expression = handleInput("Expression (in lowercase is inverted): ", (string) -> {
+            try {
+                return string.matches("[a-zA-Z+]*");
+            } catch (Exception ex) {
+                return false;
+            }
+        });
+        final String order = handleInput("Order: ", (string) -> {
+            try {
+                return !validateVarTypes(expression, string) || string.equals("BEST");
+            } catch (Exception ex) {
+                return false;
+            }
+        });
+
+        BDD bdd;
+        if (order.equals("BEST"))
+            bdd = new BDD().createWithBestOrder(expression);
+        else
+            bdd = new BDD().create(expression, order);
+
+        int length = (int) Math.pow(2, order.length());
+
+        String[] bddOutput = new String[length];
+        for (int i = 0; i < length; i++) {
+            bddOutput[i] = bdd.use(String.format("%" + order.length() + "s", Integer.toBinaryString(i)).replace(' ', '0'));
+        }
+
+        String[] evaluatedOutput = new String[length];
+        for (int i = 0; i < length; i++) {
+            evaluatedOutput[i] = evaluateExpression(expression, String.format("%" + order.length() + "s", Integer.toBinaryString(i)).replace(' ', '0'));
+        }
+
+        System.out.println("Vector | BDD | Evaluated");
+        for (int i = 0; i < length; i++) {
+            System.out.print(String.format("%" + order.length() + "s", Integer.toBinaryString(i)).replace(' ', '0'));
+            System.out.print(" | ");
+            System.out.print(evaluatedOutput[i]);
+            System.out.print(" | ");
+            System.out.println(evaluatedOutput[i]);
         }
     }
 
-    @SneakyThrows
-    private static void runAutomatic() {
-        Manager manager = new Manager();
+    private static String[] runAutomatic(Integer size, Integer numberOfVariables, boolean isBestOrder, boolean isReturning) {
 
-        Options options = new OptionsBuilder()
-                .include(Test.class.getSimpleName())
-                .timeUnit(TimeUnit.MILLISECONDS)
-                .mode(Mode.SingleShotTime)
-                .warmupIterations(0)
-                .measurementIterations(1)
-                .forks(1)
-                .result(basePath + "create.csv")
-                .resultFormat(ResultFormatType.CSV)
-//                .param("size", String.valueOf(manager.handleNumber("Size of expressions")))
-//                .param("varCount", String.valueOf(manager.handleNumber("Var count of expression")))
-                .param("size", "100", "500", "1000")
-                .param("varCount", "3", "5")
-                .build();
+        // Generate `size` expressions
+        String[][] expressions = new String[size][2];
+        for (int i = 0; i < size; i++)
+            expressions[i] = generateExpression(numberOfVariables);
 
-        new Runner(options).run();
+
+        // Generate `size` bdd and timer a time on generation and writing to storage
+        List<BDD> bddList = new ArrayList<>(size);
+        long timeOnCreating;
+
+        if (isBestOrder) {
+            timeOnCreating = System.nanoTime();
+
+            for (int i = 0; i < size; i++)
+                bddList.add(new BDD().createWithBestOrder(expressions[i][1]));
+
+            timeOnCreating = System.nanoTime() - timeOnCreating;
+        } else {
+            timeOnCreating = System.nanoTime();
+
+            for (int i = 0; i < size; i++)
+                bddList.add(new BDD().create(expressions[i][1], expressions[i][0]));
+
+            timeOnCreating = System.nanoTime() - timeOnCreating;
+        }
+
+
+        // Time of using a bdd
+        String[] vectors = new String[(int) Math.pow(2, numberOfVariables)];
+        for (int i = 0; i < Math.pow(2, numberOfVariables); i++)
+            vectors[i] = String.format("%" + numberOfVariables + "s", Integer.toBinaryString(i)).replace(' ', '0');
+
+        List<String[]> bddOutputs = new ArrayList<>(size);
+        long timeOnUsing = System.nanoTime();
+
+        for (int i = 0; i < size; i++) {
+            int length = expressions[i][0].length();
+            String[] output = new String[length];
+
+            for (int j = 0; j < length; j++)
+                output[j] = bddList.get(i).use(vectors[j]);
+
+            bddOutputs.add(output);
+        }
+
+        timeOnUsing = System.nanoTime() - timeOnUsing;
+
+
+        // Time of evaluating an expression
+        List<String[]> evaluatedOutputs = new ArrayList<>(size);
+        long timeOnEvaluating = System.nanoTime();
+
+        for (int i = 0; i < size; i++) {
+            int length = expressions[i][0].length();
+            String[] output = new String[length];
+
+            for (int j = 0; j < length; j++)
+                output[j] = evaluateExpression(expressions[i][1], vectors[j]);
+
+            evaluatedOutputs.add(output);
+        }
+
+        timeOnEvaluating = System.nanoTime() - timeOnEvaluating;
+
+
+        if (!isReturning) {
+            // Printing results
+            System.out.println("Time on creating: " + (double) timeOnCreating / 1000000.0 + " ms");
+            System.out.println("Time on using: " + (double) timeOnUsing / 1000000.0 + " ms");
+            System.out.println("Time on evaluating: " + (double) timeOnEvaluating / 1000000.0 + " ms");
+            System.out.println("Percentage of correct: " + compareStringArrays(bddOutputs, evaluatedOutputs) + "%");
+
+        }
+
+        return new String[]{
+                String.valueOf((double) timeOnCreating / 1000000),
+                String.valueOf((double) timeOnUsing / 1000000),
+                String.valueOf((double) timeOnEvaluating / 1000000),
+                String.valueOf(compareStringArrays(bddOutputs, evaluatedOutputs))
+        };
+    }
+
+
+    private static void runLogger() throws IOException {
+        FileWriter fileWriter = new FileWriter("C:\\_\\main\\classes\\DSA\\assignment\\binaryDecisionDiagram\\src\\main\\resources\\results.csv");
+        CSVWriter csvWriter = new CSVWriter(fileWriter);
+
+        String[] params_size = new String[]{"100", "1000", "10000"};
+        String[] variables_size = new String[]{"3", "5", "7"};
+
+        List<String[]> results = new ArrayList<>();
+
+        csvWriter.writeNext(new String[]{"size", "variables", "timeOnCreating", "timeOnUsing"});
+
+        for (String s : params_size) {
+            for (String value : variables_size) {
+                String[] _results = runAutomatic(Integer.parseInt(s), Integer.parseInt(value), false, true);
+                results.add(new String[]{
+                        s,
+                        value,
+                        _results[0],
+                        _results[1],
+                });
+            }
+        }
+
+        results.forEach(csvWriter::writeNext);
+        csvWriter.close();
+        fileWriter.close();
+    }
+
+    private static double compareStringArrays(List<String[]> list1, List<String[]> list2) {
+        int count = 0;
+
+        for (int i = 0; i < list1.size(); i++) {
+            if (Arrays.equals(list1.get(i), list2.get(i)))
+                count++;
+        }
+
+        return Math.ceil((double) count / list1.size()) * 100;
     }
 }

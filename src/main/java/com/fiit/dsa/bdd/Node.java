@@ -30,6 +30,12 @@ public class Node {
         return null;
     }
 
+    /**
+     * Sets parents for a node
+     *
+     * @param parentsForNode Parents to be set
+     * @param parent         Parent to be set
+     */
     public void setParents(Node[] parentsForNode, Node parent) {
         Node[] _parents = new Node[this.parents.length + parentsForNode.length];
         int pos = 0;
