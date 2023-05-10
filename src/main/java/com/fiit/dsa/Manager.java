@@ -198,18 +198,24 @@ public class Manager {
         }
 
         return new String[]{
-                String.valueOf((double) timeOnCreating / 1000000),
-                String.valueOf((double) timeOnUsing / 1000000),
-                String.valueOf((double) timeOnEvaluating / 1000000),
+                String.valueOf((double) timeOnCreating / 1000000.0),
+                String.valueOf((double) timeOnUsing / 1000000.0),
+                String.valueOf((double) timeOnEvaluating / 1000000.0),
                 String.valueOf(compareStringArrays(bddOutputs, evaluatedOutputs)),
                 String.valueOf(bddList.stream().map(BDD::getNumberOfNodes).reduce(0.0, Double::sum)),
-                String.valueOf(bddList.stream().map(BDD::getNumberOfNodesAfterReduction).reduce(0.0, Double::sum))
+                String.valueOf(bddList.stream().map(BDD::getNumberOfNodesAfterReduction).reduce(0.0, Double::sum)),
+                String.valueOf(
+                        100 - (
+                                (bddList.stream().map(BDD::getNumberOfNodesAfterReduction).reduce(0.0, Double::sum)
+                                        / bddList.stream().map(BDD::getNumberOfNodes).reduce(0.0, Double::sum))
+                                        * 100)
+                )
         };
     }
 
 
     private static void runLogger() throws IOException {
-        FileWriter fileWriter = new FileWriter("/workspaces/binaryDecisionDiagram/src/main/resources/results.csv");
+        FileWriter fileWriter = new FileWriter("/workspaces/binaryDecisionDiagram/src/main/resources/results_best_order.csv");
         CSVWriter csvWriter = new CSVWriter(fileWriter);
 
         int[] params_size = new int[]{100};
@@ -217,20 +223,22 @@ public class Manager {
 
         List<String[]> results = new ArrayList<>();
 
-        csvWriter.writeNext(new String[]{"size", "variables", "timeOnCreating", "timeOnUsing", "totalNodes", "totalNodesReduced"});
+        csvWriter.writeNext(new String[]{"size", "variables", "timeOnCreating", "timeOnUsing", "timeOnEvaluating", "reducingRate"});
 
         for (int s : params_size) {
             System.out.println("~ Size:" + s);
             for (int value : variables_size) {
                 System.out.println("~ Variable:" + value);
-                String[] _results = runAutomatic(s, value, false, true);
+                String[] _results = runAutomatic(s, value, true, true);
                 results.add(new String[]{
                         String.valueOf(s),
                         String.valueOf(value),
                         _results[0],
                         _results[1],
-                        _results[4],
-                        _results[5],
+                        _results[2],
+                        _results[6],
+//                        _results[4],
+//                        _results[5],
                 });
             }
         }
