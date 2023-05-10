@@ -2,7 +2,6 @@ package com.fiit.dsa;
 
 import com.fiit.dsa.bdd.BDD;
 import com.opencsv.CSVWriter;
-import org.openjdk.jmh.runner.RunnerException;
 
 import java.io.FileWriter;
 import java.io.IOException;
@@ -12,12 +11,11 @@ import java.util.List;
 import java.util.Scanner;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static com.fiit.dsa.bdd.Expression.*;
 
 public class Manager {
-
-    private static final String BASE_PATH = "src/main/resources/create.csv";
 
     private static final Scanner scanner = new Scanner(System.in);
 
@@ -56,7 +54,7 @@ public class Manager {
         return line;
     }
 
-    public static void main(String[] args) throws RunnerException {
+    public static void main(String[] args) {
 
         final String methodOfTesting = handleInput("Method of testing:", new String[]{"automatic", "manual", "_logger", "exit"});
 
@@ -203,30 +201,36 @@ public class Manager {
                 String.valueOf((double) timeOnCreating / 1000000),
                 String.valueOf((double) timeOnUsing / 1000000),
                 String.valueOf((double) timeOnEvaluating / 1000000),
-                String.valueOf(compareStringArrays(bddOutputs, evaluatedOutputs))
+                String.valueOf(compareStringArrays(bddOutputs, evaluatedOutputs)),
+                String.valueOf(bddList.stream().map(BDD::getNumberOfNodes).reduce(0.0, Double::sum)),
+                String.valueOf(bddList.stream().map(BDD::getNumberOfNodesAfterReduction).reduce(0.0, Double::sum))
         };
     }
 
 
     private static void runLogger() throws IOException {
-        FileWriter fileWriter = new FileWriter("C:\\_\\main\\classes\\DSA\\assignment\\binaryDecisionDiagram\\src\\main\\resources\\results.csv");
+        FileWriter fileWriter = new FileWriter("/workspaces/binaryDecisionDiagram/src/main/resources/results.csv");
         CSVWriter csvWriter = new CSVWriter(fileWriter);
 
-        String[] params_size = new String[]{"100", "1000", "10000"};
-        String[] variables_size = new String[]{"3", "5", "7"};
+        int[] params_size = new int[]{100};
+        int[] variables_size = IntStream.range(3, 20).toArray();
 
         List<String[]> results = new ArrayList<>();
 
-        csvWriter.writeNext(new String[]{"size", "variables", "timeOnCreating", "timeOnUsing"});
+        csvWriter.writeNext(new String[]{"size", "variables", "timeOnCreating", "timeOnUsing", "totalNodes", "totalNodesReduced"});
 
-        for (String s : params_size) {
-            for (String value : variables_size) {
-                String[] _results = runAutomatic(Integer.parseInt(s), Integer.parseInt(value), false, true);
+        for (int s : params_size) {
+            System.out.println("~ Size:" + s);
+            for (int value : variables_size) {
+                System.out.println("~ Variable:" + value);
+                String[] _results = runAutomatic(s, value, false, true);
                 results.add(new String[]{
-                        s,
-                        value,
+                        String.valueOf(s),
+                        String.valueOf(value),
                         _results[0],
                         _results[1],
+                        _results[4],
+                        _results[5],
                 });
             }
         }

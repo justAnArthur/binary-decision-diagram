@@ -1,25 +1,32 @@
+# BDD_create
 ```shell
-graph create.csv -x "Score" -y "Param: size" -l "insert_sorted" `
---xlabel "Milliseconds" --ylabel "Number of operation" `
---title "delete" --fontsize 14 --marker " " `
---figsize 1600x1000 -o create.png
+graph results.csv -x 3 -y 2 -l "Time on creating" --figsize 1600x1000 --fontsize 14 --chain | \
+graph results.csv -x 4 -y 2 -l "Time on using" \
+--xlabel "Milliseconds" --ylabel "Number of variable in expression" --title "BDD_create" \
+-o BDD_create.png
 ```
 
+# BDD_createWithBestOrder
 ```shell
-mlr -F "," ' { if toupper($2) == "3") PRINT }' results.csv | `
-graph create.csv -x "Score" -y "Param: size" -l "insert_sorted" `
---xlabel "Milliseconds" --ylabel "Number of operation" `
---title "delete" --fontsize 14 --marker " " `
---figsize 1600x1000 -o create.png
+graph results_best_order.csv -x 3 -y 2 -l "Time on creating" --figsize 1600x1000 --fontsize 14 --chain | \
+graph results_best_order.csv -x 4 -y 2 -l "Time on using" \
+--xlabel "Milliseconds" --ylabel "Number of variable in expression" --title "BDD_createWithBestOrder" \
+-o BDD_createWithBestOrder.png
 ```
 
+# BDD_create.timeOnUsing vs BDD_createWithBestOrder.timeOnUsing
 ```shell
-Import-Csv -Path "results.csv" | Where-Object { $_.variables -eq "3" } | Export-Csv -Path "output.csv" -NoTypeInformation; `
-graph output.csv -x 3 -y 1 -l "insert_sorted" `
---figsize 1600x1000 -o output.png
-#--xlabel "Milliseconds" --ylabel "Number of operation" `
-#--title "delete" --fontsize 14 --marker " " `
+graph results.csv -x 4 -y 2 -l "BDD_create" --figsize 1600x1000 --fontsize 14 --chain | \
+graph results_best_order.csv -x 4 -y 2 -l "BDD_createWithBestOrder" \
+--xlabel "Milliseconds" --ylabel "Number of variable in expression" --title "Time on using compare" \
+-o timeOnUsingCompare.png
 ```
 
-Import-Csv -Path "results.csv" | Where-Object { $_.variables -eq "3" } | Export-Csv -Path "output.csv"
--NoTypeInformation
+
+# BDD_create.timeOnCreating vs BDD_createWithBestOrder.timeOnCreating
+```shell
+graph results.csv -x 3 -y 2 -l "BDD_create" --figsize 1600x1000 --fontsize 14 --chain | \
+graph results_best_order.csv -x 3 -y 2 -l "BDD_createWithBestOrder" \
+--xlabel "Milliseconds" --ylabel "Number of variable in expression" --title "Time on creating compare" \
+-o timeOnCreatingCompare.png
+```
