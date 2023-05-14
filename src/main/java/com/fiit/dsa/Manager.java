@@ -85,7 +85,7 @@ public class Manager {
                 return false;
             }
         });
-        final String order = handleInput("Order: ", (string) -> {
+        String order = handleInput("Order: ", (string) -> {
             try {
                 return !validateVarTypes(expression, string) || string.equals("BEST");
             } catch (Exception ex) {
@@ -119,6 +119,8 @@ public class Manager {
             System.out.print(" | ");
             System.out.println(evaluatedOutput[i]);
         }
+
+        System.out.println("Percentage of reduction: " + (100 - (bdd.getNumberOfNodesAfterReduction() / bdd.getNumberOfNodes()) * 100) + " %");
     }
 
     private static String[] runAutomatic(Integer size, Integer numberOfVariables, boolean isBestOrder, boolean isReturning) {
@@ -193,8 +195,12 @@ public class Manager {
             System.out.println("Time on creating: " + (double) timeOnCreating / 1000000.0 + " ms");
             System.out.println("Time on using: " + (double) timeOnUsing / 1000000.0 + " ms");
             System.out.println("Time on evaluating: " + (double) timeOnEvaluating / 1000000.0 + " ms");
+            System.out.println("Percentage of reduction: "
+                    + (100 - ((bddList.stream().map(BDD::getNumberOfNodesAfterReduction).reduce(0.0, Double::sum)
+                    / bddList.stream().map(BDD::getNumberOfNodes).reduce(0.0, Double::sum))
+                    * 100))
+                    + " %");
             System.out.println("Percentage of correct: " + compareStringArrays(bddOutputs, evaluatedOutputs) + "%");
-
         }
 
         return new String[]{
@@ -215,7 +221,7 @@ public class Manager {
 
 
     private static void runLogger() throws IOException {
-        FileWriter fileWriter = new FileWriter("/workspaces/binaryDecisionDiagram/src/main/resources/results_best_order.csv");
+        FileWriter fileWriter = new FileWriter("C:\\_\\main\\classes\\DSA\\assignment\\binaryDecisionDiagram\\src\\main\\resources\\output_with_best_order.csv");
         CSVWriter csvWriter = new CSVWriter(fileWriter);
 
         int[] params_size = new int[]{100};
